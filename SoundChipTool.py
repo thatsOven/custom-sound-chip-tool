@@ -152,8 +152,8 @@ class Channel:
         pygame.draw.lines(
             pointsSurf, 
             FG, False, 
-            tuple((i, int(
-                translate(self.waveform[i], -AMP, AMP, CHANNEL_PX_OFFSET, CHANNEL_SIZE[1] - CHANNEL_PX_OFFSET))) 
+            tuple((i, 
+                int(translate(self.waveform[i], -AMP, AMP, CHANNEL_PX_OFFSET, CHANNEL_SIZE[1] - CHANNEL_PX_OFFSET))) 
                 for i in range(min(len(self.waveform), CHANNEL_SIZE[0]))
             )
         )
