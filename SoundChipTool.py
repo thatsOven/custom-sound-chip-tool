@@ -127,11 +127,8 @@ class Channel:
 
     def __init__(self, id_, ch):
         self.channel = pygame.mixer.Channel(id_)
-        self.__resetWave()
-        self.pos = ((id_ - (ch * NOTES_PER_CHANNEL)) * CHANNEL_SIZE[0], ch * CHANNEL_SIZE[1])
-
-    def __resetWave(self):
         self.waveform = Channel.BASE
+        self.pos = ((id_ - (ch * NOTES_PER_CHANNEL)) * CHANNEL_SIZE[0], ch * CHANNEL_SIZE[1])
 
     def play(self, wave):
         wave = wave.astype(numpy.int16)
@@ -140,11 +137,8 @@ class Channel:
         self.waveform = wave[0:FREQUENCY_SAMPLE:PRECISION]
 
     def stop(self):
-        self.__resetWave()
+        self.waveform = Channel.BASE
         self.channel.stop()
-
-    def get_busy(self):
-        return self.channel.get_busy()
 
     def draw(self, surface : pygame.Surface):
         pointsSurf = pygame.Surface(CHANNEL_SIZE)
@@ -173,7 +167,7 @@ class SoundChipTool:
 
     @classmethod
     def getFreq(self, note):
-        return 440 * 2 ** ((note - 69) / 12)
+        return int(440 * 2 ** ((note - 69) / 12))
 
     def channelFilter(self, channel):
         return channel
@@ -206,7 +200,7 @@ class SoundChipTool:
 
     def getFreeNote(self, channel):
         for i in range(len(self.channels[channel])):
-            if not self.channels[channel][i].get_busy():
+            if not self.channels[channel][i].channel.get_busy():
                 return i
         return 0
 
@@ -297,7 +291,7 @@ class SoundChipTool:
 
                 song.append(Sound(
                     (int(translate(event.velocity, 0, 127, 0, MAX_AMP)) << SOUND_FREQ_BITS) + 
-                    int(self.getFreq(event.note)),
+                    self.getFreq(event.note),
                     int(self.instruments[event.channel]), event.time
                 ))
             else:
