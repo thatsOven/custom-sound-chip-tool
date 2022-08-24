@@ -5,7 +5,7 @@ A tool used to emulate my [custom computer](https://github.com/thatsOven/custom-
 	- Shows an oscilloscope view of the sound chip's channels while playing the given midi file.
 	- **Usage**: visualize [file name]
 - `convert`
-	- Converts midi files to runnable code for the [custom computer](https://github.com/thatsOven/custom-emulated-compute) that plays the song.
+	- Converts midi files to runnable code for the [custom computer](https://github.com/thatsOven/custom-emulated-computer) that plays the song.
 	- **Usage**: convert [file name]
 # Command line arguments
 - `--channels`
