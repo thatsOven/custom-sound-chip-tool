@@ -18,7 +18,7 @@ A tool used to emulate my [custom computer](https://github.com/thatsOven/custom-
 	- Sets the minimum duration (in milliseconds) of a note. Default is 75. This argument is only needed when using the program in conversion mode.
 	- **Usage** --min-note-time [duration]
 - `--instruments` 
-	- Reads an instrument set file[Instruments] and assigns each instrument to the corresponding channel index. By default, the instrument set will be square waves for every channel.
+	- Reads an [instrument set file](https://github.com/thatsOven/custom-sound-chip-tool#instrument-set-file) and assigns each instrument to the corresponding channel index. By default, the instrument set will be square waves for every channel.
 	- **Usage**: --instruments [file name]
 - `--filter`
 	- Sets a channel index filter, useful when a midi file has empty channels in between used ones, or when the first channels are empty. Expects a `.py` file containing a `channelFilter` function that takes exactly one argument (the channel) and returns an integer.
