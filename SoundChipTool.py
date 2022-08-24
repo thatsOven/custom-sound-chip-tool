@@ -253,7 +253,7 @@ class SoundChipTool:
                 self.playing.append(Note(event.note, channel, event.channel))
 
                 self.channels[event.channel][channel].play(
-                    translate(event.velocity, 0, 127, 0, AMP) *
+                    translate(int(translate(event.velocity, 0, 127, 0, MAX_AMP)), 0, MAX_AMP, 0, AMP) *
                     self.getMixedWave(
                         2 * numpy.pi * sample * self.getFreq(event.note),
                         event.channel
