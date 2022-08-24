@@ -1,5 +1,12 @@
 ﻿# Custom sound chip tool
 A tool used to emulate my [custom computer](https://github.com/thatsOven/custom-emulated-computer)'s sound chip, and convert midi files to code for the computer to run.
+# Commands
+- `visualize`
+	- Shows an oscilloscope view of the sound chip's channels while playing the given midi file.
+	- **Usage**: visualize [file name]
+- `convert`
+	- Converts midi files to runnable code for the [custom computer](https://github.com/thatsOven/custom-emulated-compute) that plays the song.
+	- **Usage**: convert [file name]
 # Command line arguments
 - `--channels`
 	- Sets the number of channels (or instruments) that will be emulated and visualized. Default is 16. Make sure to use the correct amount of channels for the midi you're playing to avoid exceptions. This argument is only needed when using the program in visualization mode.
