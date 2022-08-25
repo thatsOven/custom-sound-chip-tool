@@ -236,8 +236,7 @@ class SoundChipTool:
 
         sample = numpy.arange(0, NOTE_DURATION, 1 / FREQUENCY_SAMPLE)
 
-        updatedChannel = 0
-        updatedNote    = 0
+        updates = []
 
         for event in self.readMidi(fileName):
             sTime = time()
@@ -254,17 +253,20 @@ class SoundChipTool:
                     )
                 )
 
-                updatedChannel = event.channel
-                updatedNote    = channel
+                updates.append((event.channel, channel))
             else:
                 note = self.playing.pop(self.search(event.note, event.channel))
 
                 self.channels[note.channel][note.pos].stop()
 
-                updatedChannel = note.channel
-                updatedNote    = note.pos
+                updates.append((note.channel, note.pos))
 
-            self.channels[updatedChannel][updatedNote].draw(surface)
+            if event.time == 0: continue
+
+            while len(updates) > 0:
+                self.channels[updates[-1][0]][updates[-1][1]].draw(surface)
+                updates.pop()
+
             pygame.display.update()
             pygame.event.get()
 
