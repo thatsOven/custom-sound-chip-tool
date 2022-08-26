@@ -1,8 +1,8 @@
-import pygame, numpy, sys
-from os        import path
-from pathlib   import Path
+import pygame, numpy, os
+from sys       import argv
 from scipy     import signal
 from mido      import MidiFile
+from bitarray  import bitarray
 from importlib import import_module
 from time      import sleep, time
 
@@ -11,12 +11,16 @@ RESOLUTION = (1280, 720)
 CHANNELS          = 16
 NOTES_PER_CHANNEL = 16
 MIN_NOTE_TIME     = 75
+EXPORT            = False
 
 PX_OFFSET_PERCENT     = 10
 PRECISION             = 1
 FREQUENCY_SAMPLE      = 30000
 AMP                   = 500
 NOTE_DURATION         = 1
+CHANNEL_ENC_BITS      = 8
+NOTES_ENC_BITS        = 8
+
 BITS                  = 16
 SAWTOOTH_AMP_BITS     = 4
 SQUARE_AMP_BITS       = 4
@@ -28,13 +32,14 @@ BG = (  0,   0,   0)
 FG = (255, 255, 255)
 DV = (  0, 255,   0)
 
+AMP_BITS           = BITS - SOUND_FREQ_BITS
 MAX_SAWTOOTH_AMP   = 2 ** SAWTOOTH_AMP_BITS - 1
 MAX_SQUARE_AMP     = 2 ** SQUARE_AMP_BITS - 1
 SAWTOOTH_WIDTH_DEN = 2 ** SAWTOOTH_WIDTH_BITS - 1
 SQUARE_PWM_DEN     = 2 ** SQUARE_PWM_WIDTH_BITS - 1
-MAX_AMP            = 2 ** (BITS - SOUND_FREQ_BITS) - 1
+MAX_AMP            = 2 ** AMP_BITS - 1
 
-SONG_CODE = f"""fla 0
+SONG_CODE = """fla 0
 lib song
 loz songlen
 
@@ -70,6 +75,9 @@ def translate(value, min_, max_, minResult, maxResult):
 
     return int(minResult + (scaled * deltaOut))
 
+def decimalToBinary(n, bits):
+    return bin(n)[2:].zfill(bits)
+
 class Instrument:
     def __init__(self, sawtoothWidth = 0, sawtoothAmp = 0, squarePWM = 0, squareAmp = 15):
         if (
@@ -97,6 +105,23 @@ class Instrument:
             self.squarePWM     * 0x10   +
             self.squareAmp
         )
+
+    def fromInt(self, number):
+        tmp = number // 0x1000
+        self.sawtoothWidth = tmp
+        number -= tmp * 0x1000
+
+        tmp = number // 0x100
+        self.sawtoothAmp = tmp
+        number -= tmp * 0x100
+
+        tmp = number // 0x10
+        self.squarePWM = tmp
+        number -= tmp * 0x10
+
+        self.squareAmp = number
+
+        return self
 
 class Note:
     def __init__(self, value, pos, channel):
@@ -183,7 +208,7 @@ class SoundChipTool:
                     message.type,
                     message.note,
                     self.channelFilter(message.channel),
-                    message.velocity, 
+                    int(translate(message.velocity, 0, 127, 0, MAX_AMP)), 
                     message.time
                 ))
             elif message.type == "end_of_track":
@@ -219,11 +244,104 @@ class SoundChipTool:
             return (((  instrument.squareAmp /   MAX_SQUARE_AMP) * signal.square(baseArray, signal.sawtooth(baseArray, instrument.squarePWM / SQUARE_PWM_DEN))) +
                     ((instrument.sawtoothAmp / MAX_SAWTOOTH_AMP) * signal.sawtooth(baseArray, instrument.sawtoothWidth / SAWTOOTH_WIDTH_DEN)))
 
+    def __writeEvent(self, event):
+        res  = decimalToBinary(            event.note, 7)
+        res += decimalToBinary(         event.channel, 8)
+        res += decimalToBinary(        event.velocity, AMP_BITS)
+        res += decimalToBinary(int(event.time * 1000), BITS)
+
+        return res
+
+    def export(self, events):
+        data = decimalToBinary(CHANNELS, CHANNEL_ENC_BITS) + decimalToBinary(NOTES_PER_CHANNEL, NOTES_ENC_BITS)
+
+        for i in range(CHANNELS):
+            data += decimalToBinary(int(self.instruments[i]), 16)
+
+        for i in range(len(events) - 1):
+            if events[i].type == "note_on":
+                data += "00"
+            else:
+                data += "01"
+
+            data += self.__writeEvent(events[i])
+
+        if events[-1].type == "note_on":
+            data += "10"
+        else:
+            data += "11"
+
+        data += self.__writeEvent(events[-1])
+
+        return bitarray(data)
+
+    def load(self, data : bitarray):
+        global CHANNELS, NOTES_PER_CHANNEL
+
+        data = data.to01()
+
+        CHANNELS = int(data[:8], 2)
+        NOTES_PER_CHANNEL = int(data[8:16], 2)
+
+        self.instruments = []
+
+        ptr = 16
+        for _ in range(CHANNELS):
+            self.instruments.append(Instrument().fromInt(int(data[ptr:ptr + 16], 2)))
+            ptr += 16
+
+        events = []
+        while ptr < len(data):
+            end = data[ptr]
+            ptr += 1
+            onOff = data[ptr]
+            ptr += 1
+
+            note = int(data[ptr:ptr + 7], 2)
+            ptr += 7
+
+            channel = int(data[ptr:ptr + 8], 2)
+            ptr += 8
+
+            velocity = int(data[ptr:ptr + AMP_BITS], 2)
+            ptr += AMP_BITS
+
+            eTime = int(data[ptr:ptr + BITS], 2) / 1000
+            ptr += BITS
+
+            events.append(Event(
+                "note_on" if onOff == "0" else "note_off",
+                note, channel, velocity, eTime
+            ))
+
+            if end == "1": break
+
+        return events
+
     def oscilloscopeView(self, fileName):
+        global PRECISION, CHANNEL_SIZE, CHANNEL_PX_OFFSET
+
         pygame.mixer.init(FREQUENCY_SAMPLE, -16, 1)
         pygame.init()
         surface = pygame.display.set_mode(RESOLUTION)
         pygame.display.set_caption("Custom sound chip tool - Oscilloscope view")
+
+        if fileName.split(".")[-1] == "mid":
+            events = self.readMidi(fileName)
+
+            if EXPORT:
+                with open(f"{fileName.split('.')[0]}.scts", "wb") as file:
+                    self.export(events).tofile(file)
+        else:
+            with open(fileName, "rb") as file:
+                data = bitarray()
+                data.fromfile(file)
+                events = self.load(data)
+
+        PRECISION *= NOTES_PER_CHANNEL
+        CHANNEL_SIZE       = (RESOLUTION[0] // NOTES_PER_CHANNEL, RESOLUTION[1] // CHANNELS)
+        CHANNEL_PX_OFFSET  = CHANNEL_SIZE[1] // PX_OFFSET_PERCENT
+
         pygame.mixer.set_num_channels(CHANNELS * NOTES_PER_CHANNEL)
 
         self.playing = []
@@ -237,8 +355,7 @@ class SoundChipTool:
         sample = numpy.arange(0, NOTE_DURATION, 1 / FREQUENCY_SAMPLE)
 
         updates = []
-
-        for event in self.readMidi(fileName):
+        for event in events:
             sTime = time()
 
             if event.type == "note_on":
@@ -246,7 +363,7 @@ class SoundChipTool:
                 self.playing.append(Note(event.note, channel, event.channel))
 
                 self.channels[event.channel][channel].play(
-                    translate(int(translate(event.velocity, 0, 127, 0, MAX_AMP)), 0, MAX_AMP, 0, AMP) *
+                    translate(event.velocity, 0, MAX_AMP, 0, AMP) *
                     self.getMixedWave(
                         2 * numpy.pi * sample * self.getFreq(event.note),
                         event.channel
@@ -292,7 +409,7 @@ class SoundChipTool:
                 self.playing.append(Note(event.note, len(song), event.channel))
 
                 song.append(Sound(
-                    (int(translate(event.velocity, 0, 127, 0, MAX_AMP)) << SOUND_FREQ_BITS) + 
+                    (event.velocity << SOUND_FREQ_BITS) + 
                     self.getFreq(event.note),
                     int(self.instruments[event.channel]), event.time
                 ))
@@ -322,10 +439,10 @@ class SoundChipTool:
                 out.write(str(sound.sleep)    + "\n")
                 
 def getIntArg(name, shName):
-    if name in sys.argv:
-        idx = sys.argv.index(name)
-        sys.argv.pop(idx)
-        value = sys.argv.pop(idx)
+    if name in argv:
+        idx = argv.index(name)
+        argv.pop(idx)
+        value = argv.pop(idx)
 
         try:
             value = int(value)
@@ -335,7 +452,7 @@ def getIntArg(name, shName):
             return value
 
 if __name__ == "__main__":
-    if len(sys.argv) == 1:
+    if len(argv) == 1:
         print("Custom sound chip tool - thatsOven")
     else:   
         tmp = getIntArg("--channels", "channel")
@@ -350,20 +467,23 @@ if __name__ == "__main__":
         if tmp is not None:
             MIN_NOTE_TIME = tmp
 
+        if "--export" in argv:
+            argv.remove("--export")
+            EXPORT = True
+
         tool = SoundChipTool()
 
-        if "--instruments" in sys.argv:
-            idx = sys.argv.index("--instruments")
-            sys.argv.pop(idx)
-            tool.parseInstruments(sys.argv.pop(idx))
+        if "--instruments" in argv:
+            idx = argv.index("--instruments")
+            argv.pop(idx)
+            tool.parseInstruments(argv.pop(idx))
 
-        if "--filter" in sys.argv:
-            idx = sys.argv.index("--filter")
-            sys.argv.pop(idx)
-            file = sys.argv.pop(idx)
+        if "--filter" in argv:
+            idx = argv.index("--filter")
+            argv.pop(idx)
+            file = argv.pop(idx)
 
-            sys.path.insert(0, Path(file).parent.absolute())
-            module = import_module(path.split(file)[1].split(".")[0])
+            module = import_module(file.replace(".py", "").replace(os.sep, "."))
 
             try:
                 tmp = module.channelFilter
@@ -374,11 +494,11 @@ if __name__ == "__main__":
 
             del module
 
-        if "--resolution" in sys.argv:
-            idx = sys.argv.index("--resolution")
-            sys.argv.pop(idx)
+        if "--resolution" in argv:
+            idx = argv.index("--resolution")
+            argv.pop(idx)
 
-            res = sys.argv.pop(idx).lower().split("x")
+            res = argv.pop(idx).lower().split("x")
 
             if len(res) != 2:
                 print("Invalid resolution value given. Using default.")
@@ -391,14 +511,11 @@ if __name__ == "__main__":
                     RESOLUTION = tmp
 
         MIN_NOTE_TIME /= 1000
-        PRECISION *= NOTES_PER_CHANNEL
-        CHANNEL_SIZE       = (RESOLUTION[0] // NOTES_PER_CHANNEL, RESOLUTION[1] // CHANNELS)
-        CHANNEL_PX_OFFSET  = CHANNEL_SIZE[1] // PX_OFFSET_PERCENT
 
-        if sys.argv[1] == "visualize":
-            tool.oscilloscopeView(sys.argv[2])
-        elif sys.argv[1] == "convert":
-            tool.convert(sys.argv[2])
+        if argv[1] == "visualize":
+            tool.oscilloscopeView(argv[2])
+        elif argv[1] == "convert":
+            tool.convert(argv[2])
         else:
             print("unknown command")
        

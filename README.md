@@ -2,7 +2,7 @@
 A tool used to emulate my [custom computer](https://github.com/thatsOven/custom-emulated-computer)'s sound chip, and convert midi files to code for the computer to run.
 # Commands
 - `visualize`
-	- Shows an oscilloscope view of the sound chip's channels while playing the given midi file.
+	- Shows an oscilloscope view of the sound chip's channels while playing the given midi or scts file.
 	- **Usage**: visualize [file name]
 - `convert`
 	- Converts midi files to runnable code for the [custom computer](https://github.com/thatsOven/custom-emulated-computer) that plays the song.
@@ -23,6 +23,9 @@ A tool used to emulate my [custom computer](https://github.com/thatsOven/custom-
 - `--filter`
 	- Sets a channel index filter, useful when a midi file has empty channels in between used ones, or when the first channels are empty. Expects a `.py` file containing a `channelFilter` function that takes exactly one argument (the channel) and returns an integer.
 	- **Usage**: --filter [file name]
+- `--export`
+	- Generates a Sound Chip Tool Song ("scts") file containing all parameters given when playing a song in visualization mode. Useful to avoid writing the same parameters every time a song gets played. This argument is only needed when using the program in visualization mode.
+	- **Usage**: --export
 - `--resolution`
 	- Sets the window resolution. Default is 1280x720. This argument is only needed when using the program in visualization mode.
 	- **Usage**: --resolution [width]x[height]
