@@ -355,7 +355,7 @@ class SoundChipTool:
             for j in range(CHANNELS)
         ]
 
-        sample = numpy.arange(0, NOTE_DURATION, 1 / FREQUENCY_SAMPLE)
+        sample = 2 * numpy.pi * numpy.arange(0, NOTE_DURATION, 1 / FREQUENCY_SAMPLE)
 
         updates = []
         for event in events:
@@ -368,7 +368,7 @@ class SoundChipTool:
                 self.channels[event.channel][channel].play(
                     translate(event.velocity, 0, MAX_AMP, 0, AMP) *
                     self.getMixedWave(
-                        2 * numpy.pi * sample * self.getFreq(event.note),
+                        sample * self.getFreq(event.note),
                         event.channel
                     )
                 )
