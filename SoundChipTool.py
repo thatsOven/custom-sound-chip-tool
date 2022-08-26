@@ -108,20 +108,18 @@ class Instrument:
 
     def fromInt(self, number):
         tmp = number // 0x1000
-        self.sawtoothWidth = tmp
+        sawtoothWidth = tmp
         number -= tmp * 0x1000
 
         tmp = number // 0x100
-        self.sawtoothAmp = tmp
+        sawtoothAmp = tmp
         number -= tmp * 0x100
 
         tmp = number // 0x10
-        self.squarePWM = tmp
+        squarePWM = tmp
         number -= tmp * 0x10
 
-        self.squareAmp = number
-
-        return self
+        return Instrument(sawtoothWidth, sawtoothAmp, squarePWM, number)
 
 class Note:
     def __init__(self, value, pos, channel):
@@ -318,14 +316,7 @@ class SoundChipTool:
 
         return events
 
-    def oscilloscopeView(self, fileName):
-        global PRECISION, CHANNEL_SIZE, CHANNEL_PX_OFFSET
-
-        pygame.mixer.init(FREQUENCY_SAMPLE, -16, 1)
-        pygame.init()
-        surface = pygame.display.set_mode(RESOLUTION)
-        pygame.display.set_caption("Custom sound chip tool - Oscilloscope view")
-
+    def readFile(self, fileName):
         if fileName.split(".")[-1] == "mid":
             events = self.readMidi(fileName)
 
@@ -337,6 +328,18 @@ class SoundChipTool:
                 data = bitarray()
                 data.fromfile(file)
                 events = self.load(data)
+
+        return events
+
+    def oscilloscopeView(self, fileName):
+        global PRECISION, CHANNEL_SIZE, CHANNEL_PX_OFFSET
+
+        pygame.mixer.init(FREQUENCY_SAMPLE, -16, 1)
+        pygame.init()
+        surface = pygame.display.set_mode(RESOLUTION)
+        pygame.display.set_caption("Custom sound chip tool - Oscilloscope view")
+
+        events = self.readFile(fileName)
 
         PRECISION *= NOTES_PER_CHANNEL
         CHANNEL_SIZE       = (RESOLUTION[0] // NOTES_PER_CHANNEL, RESOLUTION[1] // CHANNELS)
@@ -400,7 +403,7 @@ class SoundChipTool:
         self.playing = []
         song = []
 
-        for event in self.readMidi(fileName):
+        for event in self.readFile(fileName):
             print(event)
 
             if event.type == "note_on":
