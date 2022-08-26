@@ -9,10 +9,10 @@ A tool used to emulate my [custom computer](https://github.com/thatsOven/custom-
 	- **Usage**: convert [file name]
 # Command line arguments
 - `--channels`
-	- Sets the number of channels (or instruments) that will be emulated and visualized. Default is 16. Make sure to use the correct amount of channels for the midi you're playing to avoid exceptions. This argument is only effective when using the program in visualization mode.
+	- Sets the number of channels (or instruments) that will be emulated and visualized. Default is 16. Make sure to use the correct amount of channels for the midi you're playing to avoid exceptions. This argument is only effective when using the program in visualization mode and when using the `--export` argument.
 	- **Usage**: --channels [number of channels]
 - `--notes`
-	- Sets the number of notes that can play on the same channel at the same time. Default is 16. This argument is only effective when using the program in visualization mode.
+	- Sets the number of notes that can play on the same channel at the same time. Default is 16. This argument is only effective when using the program in visualization mode and when using the `--export` argument.
 	- **Usage**: --notes [number of notes]
 - `--min-note-time`
 	- Sets the minimum duration (in milliseconds) of a note. Default is 75. This argument is only effective when using the program in conversion mode.
