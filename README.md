@@ -9,13 +9,13 @@ A tool used to emulate my [custom computer](https://github.com/thatsOven/custom-
 	- **Usage**: convert [file name]
 # Command line arguments
 - `--channels`
-	- Sets the number of channels (or instruments) that will be emulated and visualized. Default is 16. Make sure to use the correct amount of channels for the midi you're playing to avoid exceptions. This argument is only needed when using the program in visualization mode.
+	- Sets the number of channels (or instruments) that will be emulated and visualized. Default is 16. Make sure to use the correct amount of channels for the midi you're playing to avoid exceptions. This argument is only effective when using the program in visualization mode.
 	- **Usage**: --channels [number of channels]
 - `--notes`
-	- Sets the number of notes that can play on the same channel at the same time. Default is 16. This argument is only needed when using the program in visualization mode.
+	- Sets the number of notes that can play on the same channel at the same time. Default is 16. This argument is only effective when using the program in visualization mode.
 	- **Usage**: --notes [number of notes]
 - `--min-note-time`
-	- Sets the minimum duration (in milliseconds) of a note. Default is 75. This argument is only needed when using the program in conversion mode.
+	- Sets the minimum duration (in milliseconds) of a note. Default is 75. This argument is only effective when using the program in conversion mode.
 	- **Usage** --min-note-time [duration]
 - `--instruments` 
 	- Reads an [instrument set file](https://github.com/thatsOven/custom-sound-chip-tool#instrument-set-file) and assigns each instrument to the corresponding channel index. By default, the instrument set will be square waves for every channel.
@@ -24,10 +24,10 @@ A tool used to emulate my [custom computer](https://github.com/thatsOven/custom-
 	- Sets a channel index filter, useful when a midi file has empty channels in between used ones, or when the first channels are empty. Expects a `.py` file containing a `channelFilter` function that takes exactly one argument (the channel) and returns an integer.
 	- **Usage**: --filter [file name]
 - `--export`
-	- Generates a Sound Chip Tool Song ("scts") file containing all parameters given when playing a song in visualization mode. Useful to avoid writing the same parameters every time a song gets played. This argument is only needed when using the program in visualization mode.
+	- Generates a Sound Chip Tool Song ("scts") file containing all parameters given when playing a song in visualization mode. Useful to avoid writing the same parameters every time a song gets played.
 	- **Usage**: --export
 - `--resolution`
-	- Sets the window resolution. Default is 1280x720. This argument is only needed when using the program in visualization mode.
+	- Sets the window resolution. Default is 1280x720. This argument is only effective when using the program in visualization mode.
 	- **Usage**: --resolution [width]x[height]
 # Instruments
 An instrument is composed as explained in the [Sound code section](https://github.com/thatsOven/custom-emulated-computer#sound-code) of my custom computer project.
