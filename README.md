@@ -20,6 +20,9 @@ A tool used to emulate my [custom computer](https://github.com/thatsOven/custom-
 - `--instruments` 
 	- Reads an [instrument set file](https://github.com/thatsOven/custom-sound-chip-tool#instrument-set-file) and assigns each instrument to the corresponding channel index. By default, the instrument set will be square waves for every channel.
 	- **Usage**: --instruments [file name]
+- `--detect-channels`
+	- Automatically sets the number of channels based on the length of the given instrument set (it's not effective if no instruments are given). This argument is only effective when using the program in visualization mode and when using the `--export` argument.
+	- **Usage**: --detect-channels
 - `--filter`
 	- Sets a channel index filter, useful when a midi file has empty channels in between used ones, or when the first channels are empty. Expects a `.py` file containing a `channelFilter` function that takes exactly one argument (the channel) and returns an integer.
 	- **Usage**: --filter [file name]

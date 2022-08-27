@@ -12,6 +12,7 @@ CHANNELS          = 16
 NOTES_PER_CHANNEL = 16
 MIN_NOTE_TIME     = 75
 EXPORT            = False
+DETECT_CHANNELS   = False
 
 PX_OFFSET_PERCENT     = 10
 PRECISION             = 1
@@ -350,9 +351,15 @@ class SoundChipTool:
         for event in events:
             sTime = time()
 
+            pair = (event.note, event.channel)
+
             if event.type == "note_on":
                 channel = self.getFreeNote(event.channel)
-                self.playing[(event.note, event.channel)] = channel
+
+                if pair in self.playing:
+                    self.playing[pair].append(channel)
+                else:
+                    self.playing[pair] = [channel]
 
                 self.channels[event.channel][channel].play(
                     translate(event.velocity, 0, MAX_AMP, 0, AMP) *
@@ -364,12 +371,10 @@ class SoundChipTool:
 
                 updates.append((event.channel, channel))
             else:
-                note = self.playing[(event.note, event.channel)]
+                note = self.playing[pair].pop()
                 self.channels[event.channel][note].stop()
 
                 updates.append((event.channel, note))
-
-                del self.playing[(event.note, event.channel)]
 
             if event.time == 0: continue
 
@@ -386,8 +391,9 @@ class SoundChipTool:
                 sleep(sTime)
 
     def addTime(self, song, time):
-        for note in self.playing.values():
-            song[note].duration += time
+        for notes in self.playing.values():
+            for note in notes:
+                song[note].duration += time
 
     def convert(self, fileName):
         self.playing = {}
@@ -396,10 +402,15 @@ class SoundChipTool:
         for event in self.readFile(fileName):
             print(event)
 
+            pair = (event.note, event.channel)
+
             if event.type == "note_on":
                 self.addTime(song, event.time)
 
-                self.playing[(event.note, event.channel)] = len(song)
+                if pair in self.playing:
+                    self.playing[pair].append(len(song))
+                else:
+                    self.playing[pair] = [len(song)]
 
                 song.append(Sound(
                     (event.velocity << SOUND_FREQ_BITS) + 
@@ -407,7 +418,7 @@ class SoundChipTool:
                     int(self.instruments[event.channel]), event.time
                 ))
             else:
-                del self.playing[(event.note, event.channel)]
+                self.playing[pair].pop()
 
                 if event.time != 0 and len(song) != 0:
                     self.addTime(song, event.time)
@@ -486,6 +497,10 @@ if __name__ == "__main__":
                 tool.channelFilter = module.channelFilter
 
             del module
+
+        if "--detect-channels" in argv:
+            argv.remove("--detect-channels")
+            CHANNELS = len(tool.instruments)
 
         if "--resolution" in argv:
             idx = argv.index("--resolution")
