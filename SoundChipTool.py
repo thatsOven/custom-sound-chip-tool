@@ -121,12 +121,6 @@ class Instrument:
 
         return Instrument(sawtoothWidth, sawtoothAmp, squarePWM, number)
 
-class Note:
-    def __init__(self, value, pos, channel):
-        self.value   = value
-        self.pos     = pos
-        self.channel = channel
-
 class Event:
     def __init__(self, type, note, channel, velocity, sleep):
         self.type     = type
@@ -180,7 +174,7 @@ class Channel:
 
 class SoundChipTool:
     def __init__(self):
-        self.playing     = []
+        self.playing     = {}
         self.channels    = None
         self.instruments = [Instrument() for _ in range(CHANNELS)]
 
@@ -226,11 +220,6 @@ class SoundChipTool:
             if not self.channels[channel][i].channel.get_busy():
                 return i
         return 0
-
-    def search(self, note, channel):
-        for i in range(len(self.playing)):
-            if self.playing[i].value == note and self.playing[i].channel == channel:
-                return i
 
     def getMixedWave(self, baseArray, channel):
         instrument = self.instruments[channel]
@@ -347,7 +336,7 @@ class SoundChipTool:
 
         pygame.mixer.set_num_channels(CHANNELS * NOTES_PER_CHANNEL)
 
-        self.playing = []
+        self.playing = {}
 
         self.channels = [
             [Channel(NOTES_PER_CHANNEL * j + i, j) 
@@ -363,7 +352,7 @@ class SoundChipTool:
 
             if event.type == "note_on":
                 channel = self.getFreeNote(event.channel)
-                self.playing.append(Note(event.note, channel, event.channel))
+                self.playing[(event.note, event.channel)] = channel
 
                 self.channels[event.channel][channel].play(
                     translate(event.velocity, 0, MAX_AMP, 0, AMP) *
@@ -375,11 +364,12 @@ class SoundChipTool:
 
                 updates.append((event.channel, channel))
             else:
-                note = self.playing.pop(self.search(event.note, event.channel))
+                note = self.playing[(event.note, event.channel)]
+                self.channels[event.channel][note].stop()
 
-                self.channels[note.channel][note.pos].stop()
+                updates.append((event.channel, note))
 
-                updates.append((note.channel, note.pos))
+                del self.playing[(event.note, event.channel)]
 
             if event.time == 0: continue
 
@@ -396,11 +386,11 @@ class SoundChipTool:
                 sleep(sTime)
 
     def addTime(self, song, time):
-        for note in self.playing:
-            song[note.pos].duration += time
+        for note in self.playing.values():
+            song[note].duration += time
 
     def convert(self, fileName):
-        self.playing = []
+        self.playing = {}
         song = []
 
         for event in self.readFile(fileName):
@@ -409,7 +399,7 @@ class SoundChipTool:
             if event.type == "note_on":
                 self.addTime(song, event.time)
 
-                self.playing.append(Note(event.note, len(song), event.channel))
+                self.playing[(event.note, event.channel)] = len(song)
 
                 song.append(Sound(
                     (event.velocity << SOUND_FREQ_BITS) + 
@@ -417,7 +407,7 @@ class SoundChipTool:
                     int(self.instruments[event.channel]), event.time
                 ))
             else:
-                self.playing.pop(self.search(event.note, event.channel))
+                del self.playing[(event.note, event.channel)]
 
                 if event.time != 0 and len(song) != 0:
                     self.addTime(song, event.time)
