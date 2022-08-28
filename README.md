@@ -17,6 +17,9 @@ A tool used to emulate my [custom computer](https://github.com/thatsOven/custom-
 - `--min-note-time`
 	- Sets the minimum duration (in milliseconds) of a note. Default is 75. This argument is only effective when using the program in conversion mode.
 	- **Usage** --min-note-time [duration]
+- `--mixer-words`
+	- Sets the amount of words dedicated to each mixer code. Default is 1.
+	- Usage: --mixer-words [word count]
 - `--instruments` 
 	- Reads an [instrument set file](https://github.com/thatsOven/custom-sound-chip-tool#instrument-set-file) and assigns each instrument to the corresponding channel index. By default, the instrument set will be square waves for every channel.
 	- **Usage**: --instruments [file name]

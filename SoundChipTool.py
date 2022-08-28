@@ -1,3 +1,4 @@
+from unicodedata import decimal
 import pygame, numpy, os
 from sys       import argv
 from scipy     import signal
@@ -13,6 +14,7 @@ NOTES_PER_CHANNEL = 16
 MIN_NOTE_TIME     = 75
 EXPORT            = False
 DETECT_CHANNELS   = False
+MIXER_WORDS       = 1
 
 PX_OFFSET_PERCENT     = 10
 PRECISION             = 1
@@ -27,7 +29,11 @@ SAWTOOTH_AMP_BITS     = 4
 SQUARE_AMP_BITS       = 4
 SAWTOOTH_WIDTH_BITS   = 4
 SQUARE_PWM_WIDTH_BITS = 4
+ND_SQUARE_AMP_BITS    = 5
+SQUARE_DUTY_BITS      = 6
+NOISE_AMP_BITS        = 5
 SOUND_FREQ_BITS       = 13
+MIXER_WORD_BITS       = 2
 
 BG = (  0,   0,   0)
 FG = (255, 255, 255)
@@ -38,9 +44,12 @@ MAX_SAWTOOTH_AMP   = 2 ** SAWTOOTH_AMP_BITS - 1
 MAX_SQUARE_AMP     = 2 ** SQUARE_AMP_BITS - 1
 SAWTOOTH_WIDTH_DEN = 2 ** SAWTOOTH_WIDTH_BITS - 1
 SQUARE_PWM_DEN     = 2 ** SQUARE_PWM_WIDTH_BITS - 1
+MAX_ND_SQUARE_AMP  = 2 ** ND_SQUARE_AMP_BITS - 1
+SQUARE_DUTY_DEN    = 2 ** SQUARE_DUTY_BITS - 1
+MAX_NOISE_AMP      = 2 ** NOISE_AMP_BITS - 1
 MAX_AMP            = 2 ** AMP_BITS - 1
 
-SONG_CODE = """fla 0
+SONG_CODE_ST = f"""fla 0
 lib song
 loz songlen
 
@@ -50,8 +59,9 @@ snx
 
 ina
 ina
-ina
-add
+"""
+
+SONG_CODE_ND = """add
 lax
 wtx
 
@@ -77,15 +87,23 @@ def translate(value, min_, max_, minResult, maxResult):
     return int(minResult + (scaled * deltaOut))
 
 def decimalToBinary(n, bits):
-    return bin(n)[2:].zfill(bits)
+    val = bin(n)[2:]
+
+    if len(val) > bits:
+        return val[:bits]
+
+    return val.zfill(bits)
 
 class Instrument:
-    def __init__(self, sawtoothWidth = 0, sawtoothAmp = 0, squarePWM = 0, squareAmp = 15):
+    def __init__(self, sawtoothWidth = 0, sawtoothAmp = 0, squarePWM = 0, squareAmp = 15, noiseAmp = 0, squareDuty = 0, ndSquareAmp = 0):
         if (
-            sawtoothWidth < 0 or sawtoothWidth > 15 or
-              sawtoothAmp < 0 or   sawtoothAmp > 15 or
-                squarePWM < 0 or     squarePWM > 15 or
-                squareAmp < 0 or     squareAmp > 15
+            sawtoothWidth < 0 or sawtoothWidth > SAWTOOTH_WIDTH_DEN or
+              sawtoothAmp < 0 or   sawtoothAmp > MAX_SAWTOOTH_AMP   or
+                squarePWM < 0 or     squarePWM > SQUARE_PWM_DEN     or
+                squareAmp < 0 or     squareAmp > MAX_SQUARE_AMP     or 
+                 noiseAmp < 0 or      noiseAmp > MAX_NOISE_AMP      or
+               squareDuty < 0 or    squareDuty > SQUARE_DUTY_DEN    or
+              ndSquareAmp < 0 or   ndSquareAmp > MAX_ND_SQUARE_AMP
         ):
             print("Invalid instrument. Using default")
 
@@ -93,34 +111,76 @@ class Instrument:
             self.squarePWM     = 0
             self.sawtoothAmp   = 0
             self.sawtoothWidth = 0
+
+            self.noiseAmp    = 0
+            self.squareDuty  = 0
+            self.ndSquareAmp = 0
         else:
             self.squareAmp     = squareAmp
             self.squarePWM     = squarePWM
             self.sawtoothAmp   = sawtoothAmp
             self.sawtoothWidth = sawtoothWidth
 
+            self.noiseAmp    = noiseAmp
+            self.squareDuty  = squareDuty
+            self.ndSquareAmp = ndSquareAmp
+
     def __int__(self):
-        return (
-            self.sawtoothWidth * 0x1000 +
-            self.sawtoothAmp   * 0x100  +
-            self.squarePWM     * 0x10   +
+        p0 = SQUARE_AMP_BITS + SQUARE_PWM_WIDTH_BITS
+        p1 = p0 + SAWTOOTH_AMP_BITS
+
+        tmp = (
+            (self.sawtoothWidth << p1) +
+            (self.sawtoothAmp   << p0) +
+            (self.squarePWM     << SQUARE_AMP_BITS) +
             self.squareAmp
         )
 
+        if MIXER_WORDS == 2:
+            p2 = p1 + SAWTOOTH_WIDTH_BITS
+            p3 = p2 + ND_SQUARE_AMP_BITS
+            p4 = p3 + SQUARE_DUTY_BITS
+
+            tmp += (
+                (self.noiseAmp    << p4) + 
+                (self.squareDuty  << p3) + 
+                (self.ndSquareAmp << p2)
+            )
+
+        return tmp
+
     def fromInt(self, number):
-        tmp = number // 0x1000
+        p0 = SQUARE_AMP_BITS + SQUARE_PWM_WIDTH_BITS
+        p1 = p0 + SAWTOOTH_AMP_BITS
+        p2 = p1 + SAWTOOTH_WIDTH_BITS
+        p3 = p2 + ND_SQUARE_AMP_BITS
+        p4 = p3 + SQUARE_DUTY_BITS
+
+        tmp = number >> p4
+        noiseAmp = tmp
+        number -= tmp << p4
+
+        tmp = number >> p3
+        squareDuty = tmp
+        number -= tmp << p3
+
+        tmp = number >> p2
+        ndSquareAmp = tmp
+        number -= tmp << p2
+
+        tmp = number >> p1
         sawtoothWidth = tmp
-        number -= tmp * 0x1000
+        number -= tmp << p1
 
-        tmp = number // 0x100
+        tmp = number >> p0
         sawtoothAmp = tmp
-        number -= tmp * 0x100
+        number -= tmp << p0
 
-        tmp = number // 0x10
+        tmp = number >> SQUARE_AMP_BITS
         squarePWM = tmp
-        number -= tmp * 0x10
+        number -= tmp << SQUARE_AMP_BITS
 
-        return Instrument(sawtoothWidth, sawtoothAmp, squarePWM, number)
+        return Instrument(sawtoothWidth, sawtoothAmp, squarePWM, number, noiseAmp, squareDuty, ndSquareAmp)
 
 class Event:
     def __init__(self, type, note, channel, velocity, sleep):
@@ -223,14 +283,22 @@ class SoundChipTool:
         return 0
 
     def getMixedWave(self, baseArray, channel):
+        if MIXER_WORDS == 0:
+            return signal.square(baseArray)
+
         instrument = self.instruments[channel]
 
         if instrument.squarePWM == 0:
-            return (((  instrument.squareAmp /   MAX_SQUARE_AMP) * signal.square(baseArray)) +
-                    ((instrument.sawtoothAmp / MAX_SAWTOOTH_AMP) * signal.sawtooth(baseArray, instrument.sawtoothWidth / SAWTOOTH_WIDTH_DEN)))
+            tmp = (((  instrument.squareAmp /   MAX_SQUARE_AMP) * signal.square(baseArray)) +
+                   ((instrument.sawtoothAmp / MAX_SAWTOOTH_AMP) * signal.sawtooth(baseArray, instrument.sawtoothWidth / SAWTOOTH_WIDTH_DEN)))
         else:
-            return (((  instrument.squareAmp /   MAX_SQUARE_AMP) * signal.square(baseArray, signal.sawtooth(baseArray, instrument.squarePWM / SQUARE_PWM_DEN))) +
-                    ((instrument.sawtoothAmp / MAX_SAWTOOTH_AMP) * signal.sawtooth(baseArray, instrument.sawtoothWidth / SAWTOOTH_WIDTH_DEN)))
+            tmp = (((  instrument.squareAmp /   MAX_SQUARE_AMP) * signal.square(baseArray, signal.sawtooth(baseArray, instrument.squarePWM / SQUARE_PWM_DEN))) +
+                   ((instrument.sawtoothAmp / MAX_SAWTOOTH_AMP) * signal.sawtooth(baseArray, instrument.sawtoothWidth / SAWTOOTH_WIDTH_DEN)))
+
+        if MIXER_WORDS == 2:
+            return tmp + (((instrument.ndSquareAmp / MAX_ND_SQUARE_AMP) * signal.square(baseArray, instrument.squareDuty / SQUARE_DUTY_DEN)) + 
+                          ((   instrument.noiseAmp /     MAX_NOISE_AMP) * numpy.random.random(len(baseArray))))
+        else: return tmp
 
     def __writeEvent(self, event):
         res  = decimalToBinary(            event.note, 7)
@@ -241,10 +309,14 @@ class SoundChipTool:
         return res
 
     def export(self, events):
-        data = decimalToBinary(CHANNELS, CHANNEL_ENC_BITS) + decimalToBinary(NOTES_PER_CHANNEL, NOTES_ENC_BITS)
+        data = (
+            decimalToBinary(         CHANNELS, CHANNEL_ENC_BITS) + 
+            decimalToBinary(NOTES_PER_CHANNEL,   NOTES_ENC_BITS) + 
+            decimalToBinary(      MIXER_WORDS,  MIXER_WORD_BITS)
+        )
 
         for i in range(CHANNELS):
-            data += decimalToBinary(int(self.instruments[i]), 16)
+            data += decimalToBinary(int(self.instruments[i]), 16 * MIXER_WORDS)
 
         for i in range(len(events) - 1):
             if events[i].type == "note_on":
@@ -264,19 +336,22 @@ class SoundChipTool:
         return bitarray(data)
 
     def load(self, data : bitarray):
-        global CHANNELS, NOTES_PER_CHANNEL
+        global CHANNELS, NOTES_PER_CHANNEL, MIXER_WORDS
 
         data = data.to01()
 
-        CHANNELS = int(data[:8], 2)
-        NOTES_PER_CHANNEL = int(data[8:16], 2)
+        p0  = CHANNEL_ENC_BITS + NOTES_ENC_BITS
+        ptr = p0 + MIXER_WORD_BITS
+
+        CHANNELS          = int(data[:CHANNEL_ENC_BITS], 2)
+        NOTES_PER_CHANNEL = int(data[CHANNEL_ENC_BITS:p0], 2)
+        MIXER_WORDS       = int(data[p0:ptr], 2)
 
         self.instruments = []
-
-        ptr = 16
-        for _ in range(CHANNELS):
-            self.instruments.append(Instrument().fromInt(int(data[ptr:ptr + 16], 2)))
-            ptr += 16
+        if not MIXER_WORDS == 0:
+            for _ in range(CHANNELS):
+                self.instruments.append(Instrument().fromInt(int(data[ptr:ptr + (16 * MIXER_WORDS)], 2)))
+                ptr += 16 * MIXER_WORDS
 
         events = []
         while ptr < len(data):
@@ -433,12 +508,25 @@ class SoundChipTool:
 
         print("Writing to file...")
         with open(f"{fileName.split('.', maxsplit = 1)[0]}.ocpu", "w") as out:
-            out.write(SONG_CODE)
+            out.write(SONG_CODE_ST)
+
+            for _ in range(MIXER_WORDS):
+                out.write("ina\n")
+
+            out.write(SONG_CODE_ND)
+
             out.write(str(len(song)) + "\n:song\n")
 
             for sound in song:
                 out.write(str(sound.freqAmp)  + "\n")
-                out.write(str(sound.mix)      + "\n")
+
+                if   MIXER_WORDS == 1:
+                    out.write(str(sound.mix) + "\n")
+                elif MIXER_WORDS == 2:
+                    nd = sound.mix >> BITS
+                    out.write(str(sound.mix - nd) + "\n")
+                    out.write(str(nd)             + "\n")
+
                 out.write(str(sound.duration) + "\n")
                 out.write(str(sound.sleep)    + "\n")
                 
@@ -470,6 +558,10 @@ if __name__ == "__main__":
         tmp = getIntArg("--min-note-time", "minimum note time")
         if tmp is not None:
             MIN_NOTE_TIME = tmp
+
+        tmp = getIntArg("--mixer-words", "mixer word quantity")
+        if tmp is not None:
+            MIXER_WORDS = tmp
 
         if "--export" in argv:
             argv.remove("--export")
