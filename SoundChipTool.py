@@ -524,7 +524,7 @@ class SoundChipTool:
                     out.write(str(sound.mix) + "\n")
                 elif MIXER_WORDS == 2:
                     nd = sound.mix >> BITS
-                    out.write(str(sound.mix - nd) + "\n")
+                    out.write(str(sound.mix - (nd << BITS)) + "\n")
                     out.write(str(nd)             + "\n")
 
                 out.write(str(sound.duration) + "\n")
