@@ -23,6 +23,9 @@ A tool used to emulate my [custom computer](https://github.com/thatsOven/custom-
 - `--instruments` 
 	- Reads an [instrument set file](https://github.com/thatsOven/custom-sound-chip-tool#instrument-set-file) and assigns each instrument to the corresponding channel index. By default, the instrument set will be square waves for every channel.
 	- **Usage**: --instruments [file name]
+- `--extract-instruments`
+	- Creates an [instrument set file](https://github.com/thatsOven/custom-sound-chip-tool#instrument-set-file) based on the current instruments that the sound chip is using. Useful for extracting the instrument set of a scts file.
+	- **Usage**: --extract-instruments [output file name]
 - `--detect-channels`
 	- Automatically sets the number of channels based on the length of the given instrument set (it's not effective if no instruments are given). This argument is only effective when using the program in visualization mode or when using the `--export` argument.
 	- **Usage**: --detect-channels

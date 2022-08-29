@@ -14,6 +14,7 @@ NOTES_PER_CHANNEL = 16
 MIN_NOTE_TIME     = 75
 EXPORT            = False
 DETECT_CHANNELS   = False
+EXTRACT           = None
 MIXER_WORDS       = 1
 
 PX_OFFSET_PERCENT     = 10
@@ -182,6 +183,9 @@ class Instrument:
 
         return Instrument(sawtoothWidth, sawtoothAmp, squarePWM, number, noiseAmp, squareDuty, ndSquareAmp)
 
+    def __str__(self):
+        return f"Instrument({self.sawtoothWidth}, {self.sawtoothAmp}, {self.squarePWM}, {self.squareAmp}, {self.noiseAmp}, {self.squareDuty}, {self.ndSquareAmp})"
+
 class Event:
     def __init__(self, type, note, channel, velocity, sleep):
         self.type     = type
@@ -238,8 +242,11 @@ class SoundChipTool:
         self.playing     = {}
         self.channels    = None
         self.instruments = [Instrument() for _ in range(CHANNELS)]
+        self.parsed      = False
 
     def parseInstruments(self, fileName):
+        self.parsed = True
+
         with open(fileName, "r") as txt:
             self.instruments = eval("[" + txt.read() + "]")
 
@@ -316,7 +323,7 @@ class SoundChipTool:
         )
 
         for i in range(CHANNELS):
-            data += decimalToBinary(int(self.instruments[i]), 16 * MIXER_WORDS)
+            data += decimalToBinary(int(self.instruments[i]), BITS * MIXER_WORDS)
 
         for i in range(len(events) - 1):
             if events[i].type == "note_on":
@@ -347,11 +354,13 @@ class SoundChipTool:
         NOTES_PER_CHANNEL = int(data[CHANNEL_ENC_BITS:p0], 2)
         MIXER_WORDS       = int(data[p0:ptr], 2)
 
-        self.instruments = []
-        if not MIXER_WORDS == 0:
-            for _ in range(CHANNELS):
-                self.instruments.append(Instrument().fromInt(int(data[ptr:ptr + (16 * MIXER_WORDS)], 2)))
-                ptr += 16 * MIXER_WORDS
+        if not self.parsed:
+            self.instruments = []
+            if not MIXER_WORDS == 0:
+                for _ in range(CHANNELS):
+                    self.instruments.append(Instrument().fromInt(int(data[ptr:ptr + (BITS * MIXER_WORDS)], 2)))
+                    ptr += BITS * MIXER_WORDS
+        else: ptr += BITS * MIXER_WORDS * CHANNELS
 
         events = []
         while ptr < len(data):
@@ -381,6 +390,11 @@ class SoundChipTool:
 
         return events
 
+    def extractInstruments(self, fileName):
+        with open(fileName, "w") as out:
+            for instrument in self.instruments:
+                out.write(str(instrument) + ",\n")
+
     def readFile(self, fileName):
         if fileName.split(".")[-1] == "mid":
             events = self.readMidi(fileName)
@@ -393,6 +407,9 @@ class SoundChipTool:
                 data = bitarray()
                 data.fromfile(file)
                 events = self.load(data)
+
+        if EXTRACT is not None:
+            self.extractInstruments(EXTRACT)
 
         return events
 
@@ -573,6 +590,11 @@ if __name__ == "__main__":
             idx = argv.index("--instruments")
             argv.pop(idx)
             tool.parseInstruments(argv.pop(idx))
+
+        if "--extract-instruments" in argv:
+            idx = argv.index("--extract-instruments")
+            argv.pop(idx)
+            EXTRACT = argv.pop(idx)
 
         if "--filter" in argv:
             idx = argv.index("--filter")
