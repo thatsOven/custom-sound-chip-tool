@@ -304,7 +304,7 @@ class SoundChipTool:
 
         if MIXER_WORDS == 2:
             return tmp + (((instrument.ndSquareAmp / MAX_ND_SQUARE_AMP) * signal.square(baseArray, instrument.squareDuty / SQUARE_DUTY_DEN)) + 
-                          ((   instrument.noiseAmp /     MAX_NOISE_AMP) * numpy.random.random(len(baseArray))))
+                          ((   instrument.noiseAmp /     MAX_NOISE_AMP) * numpy.random.uniform(-1, 1, len(baseArray))))
         else: return tmp
 
     def __writeEvent(self, event):
