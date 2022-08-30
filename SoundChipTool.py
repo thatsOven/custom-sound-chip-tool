@@ -1,4 +1,3 @@
-from unicodedata import decimal
 import pygame, numpy, os
 from sys       import argv
 from scipy     import signal
