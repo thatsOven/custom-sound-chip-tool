@@ -38,6 +38,9 @@ A tool used to emulate my [custom computer](https://github.com/thatsOven/custom-
 - `--resolution`
 	- Sets the window resolution. Default is 1280x720. This argument is only effective when using the program in visualization mode.
 	- **Usage**: --resolution [width]x[height]
+- `--wait`
+	- Waits for a keypress (on the terminal window) to start. Useful for recordings. This argument is only effective when using the program in visualization mode.
+	- **Usage**: --wait
 # Instruments
 An instrument is composed as explained in the [Sound code section](https://github.com/thatsOven/custom-emulated-computer#sound-code) of my custom computer project.
 To create an instrument in this program, you can create an instance of the `Instrument` class, and pass it the corresponding arguments.

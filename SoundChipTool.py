@@ -13,6 +13,7 @@ NOTES_PER_CHANNEL = 16
 MIN_NOTE_TIME     = 75
 EXPORT            = False
 DETECT_CHANNELS   = False
+WAIT              = False
 EXTRACT           = None
 MIXER_WORDS       = 1
 
@@ -437,6 +438,8 @@ class SoundChipTool:
         ]
 
         sample = 2 * numpy.pi * numpy.arange(0, NOTE_DURATION, 1 / FREQUENCY_SAMPLE)
+        
+        if WAIT: input()
 
         updates = []
         for event in events:
@@ -582,6 +585,10 @@ if __name__ == "__main__":
         if "--export" in argv:
             argv.remove("--export")
             EXPORT = True
+
+        if "--wait" in argv:
+            argv.remove("--wait")
+            WAIT = True
 
         tool = SoundChipTool()
 
