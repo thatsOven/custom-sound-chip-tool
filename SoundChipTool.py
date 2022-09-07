@@ -264,9 +264,12 @@ class SoundChipTool:
 
         for message in mid:
             if message.type in ("note_on", "note_off"):
+                if message.type == "note_on" and message.velocity == 0:
+                    type_ = "note_off"
+                else: type_ = message.type
+
                 events.append(Event(
-                    message.type,
-                    message.note,
+                    type_, message.note,
                     self.channelFilter(message.channel),
                     int(translate(message.velocity, 0, 127, 0, MAX_AMP)), 
                     message.time
