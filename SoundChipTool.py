@@ -419,7 +419,7 @@ class SoundChipTool:
     def oscilloscopeView(self, fileName):
         global PRECISION, CHANNEL_SIZE, CHANNEL_PX_OFFSET
 
-        pygame.mixer.init(FREQUENCY_SAMPLE, -16, 1)
+        pygame.mixer.pre_init(FREQUENCY_SAMPLE, -16, 1, allowedchanges = 0)
         pygame.init()
         surface = pygame.display.set_mode(RESOLUTION)
         pygame.display.set_caption("Custom sound chip tool - Oscilloscope view")
